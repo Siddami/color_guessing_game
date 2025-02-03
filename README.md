@@ -20,7 +20,7 @@ This project was developed as a Frontend Intern Task to demonstrate:
 - **JavaScript (ES6+)**: Game logic and interactivity
 - **No External Libraries**: Pure vanilla implementation
 
-## 📂 Folder Structure
+## Folder Structure
 
 ```
 color-guessing-game/
