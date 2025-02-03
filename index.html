@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Color Guessing Game</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div class="game-container">
+        <h1>Color Guessing Game</h1>
+
+        <!-- Game Instructions -->
+        <div class="game-instructions" data-testid="gameInstructions">
+            Guess the correct color by clicking on the matching color button!
+        </div>
+
+        <!-- Target Color Display -->
+        <div class="color-box" data-testid="colorBox">
+            <!-- Target color will be dynamically set -->
+        </div>
+
+        <!-- Game Status -->
+        <div class="game-status" data-testid="gameStatus">
+            Make your first guess!
+        </div>
+
+        <!-- Score Display -->
+        <div class="score-container" data-testid="score">
+            Score: <span id="scoreValue">0</span>
+        </div>
+
+        <!-- Color Options -->
+        <div class="color-options">
+            <button class="color-option" data-testid="colorOption"></button>
+            <button class="color-option" data-testid="colorOption"></button>
+            <button class="color-option" data-testid="colorOption"></button>
+            <button class="color-option" data-testid="colorOption"></button>
+            <button class="color-option" data-testid="colorOption"></button>
+            <button class="color-option" data-testid="colorOption"></button>
+        </div>
+
+        <!-- New Game Button -->
+        <button class="new-game-button" data-testid="newGameButton">
+            New Game
+        </button>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
