@@ -1,8 +1,7 @@
 class ColorGame {
     constructor() {
         // Constants
-        this.ANIMATION_DURATION = 1000;
-        this.VARIATION_AMOUNT = 76;
+        this.ANIMATION_DURATION = 500;
         this.baseColors = [
             '#FF0000', '#00FF00', '#0000FF',
             '#FF00FF', '#FFFF00', '#00FFFF',
@@ -54,6 +53,41 @@ class ColorGame {
         this.livesDisplay.innerHTML = fullHearts + emptyHearts;
     }
 
+    generateContrastingColors(baseColor) {
+    const colors = new Set([baseColor]);
+
+    while (colors.size < 6) {
+        const randomColor = this.getRandomContrastingColor(baseColor);
+        colors.add(randomColor);
+    }
+
+    return Array.from(colors);
+}
+
+getRandomContrastingColor(referenceColor) {
+    const referenceRgb = this.hexToRgb(referenceColor);
+    let newColor;
+
+    do {
+        newColor = {
+            r: Math.floor(Math.random() * 256),
+            g: Math.floor(Math.random() * 256),
+            b: Math.floor(Math.random() * 256)
+        };
+    } while (this.getColorDifference(referenceRgb, newColor) < 150);
+
+    return this.rgbToHex(newColor.r, newColor.g, newColor.b);
+}
+
+getColorDifference(rgb1, rgb2) {
+    return Math.sqrt(
+        Math.pow(rgb1.r - rgb2.r, 2) +
+        Math.pow(rgb1.g - rgb2.g, 2) +
+        Math.pow(rgb1.b - rgb2.b, 2)
+    );
+}
+
+
     getRandomColor() {
         const excludeColors = new Set(Array.from(this.elements.colorOptions)
             .map(option => option.style.backgroundColor));
@@ -70,22 +104,6 @@ class ColorGame {
         return Math.min(Math.max(num, min), max);
     }
 
-    generateSimilarColors(baseColor) {
-        const rgb = this.hexToRgb(baseColor);
-        const colors = new Set([baseColor]);
-
-        while (colors.size < 6) {
-            const newColor = {
-                r: this.clamp(rgb.r + (Math.random() - 0.5) * this.VARIATION_AMOUNT * 2, 0, 255),
-                g: this.clamp(rgb.g + (Math.random() - 0.5) * this.VARIATION_AMOUNT * 2, 0, 255),
-                b: this.clamp(rgb.b + (Math.random() - 0.5) * this.VARIATION_AMOUNT * 2, 0, 255)
-            };
-
-            colors.add(this.rgbToHex(newColor.r, newColor.g, newColor.b));
-        }
-
-        return Array.from(colors);
-    }
 
     hexToRgb(hex) {
         const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -146,7 +164,7 @@ class ColorGame {
     async setColorOptions() {
         if (this.state.isAnimating) return;
 
-        const options = this.generateSimilarColors(this.state.targetColor);
+        const options = this.generateContrastingColors(this.state.targetColor);
         const shuffledOptions = this.shuffleArray(options);
 
         const updatePromises = Array.from(this.elements.colorOptions).map(async (option, index) => {
