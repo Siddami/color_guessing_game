@@ -72,6 +72,22 @@ body {
   font-weight: bold;
 }
 
+.lives-container {
+  margin: 15px 0;
+  font-size: 24px;
+  text-align: center;
+}
+
+.lives {
+  display: inline-block;
+  letter-spacing: 5px;
+}
+
+.color-option:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* Responsive Design */
 @media (max-width: 600px) {
   .game-container {
