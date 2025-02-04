@@ -1,97 +1,232 @@
 class ColorGame {
     constructor() {
-        this.colors = [
-            '#FF6B6B', '#4ECDC4', '#45B7D1',
-            '#FDCB6E', '#6C5CE7', '#FF8A5B',
-            '#2ECC71', '#3498DB', '#9B59B6',
-            '#E74C3C', '#F1C40F', '#1ABC9C'
+        // Constants
+        this.ANIMATION_DURATION = 1000;
+        this.VARIATION_AMOUNT = 76;
+        this.baseColors = [
+            '#FF0000', '#00FF00', '#0000FF',
+            '#FF00FF', '#FFFF00', '#00FFFF',
+            '#FF8000', '#80FF00', '#0080FF',
+            '#8000FF', '#FF0080', '#00FF80'
         ];
-        this.scoreElement = document.querySelector('[data-testid="score"] #scoreValue');
-        this.colorBox = document.querySelector('[data-testid="colorBox"]');
-        this.colorOptions = document.querySelectorAll('[data-testid="colorOption"]');
-        this.gameStatus = document.querySelector('[data-testid="gameStatus"]');
-        this.newGameButton = document.querySelector('[data-testid="newGameButton"]');
 
-        this.score = 0;
-        this.targetColor = '';
+        this.maxLives = 5;
+        this.currentLives = this.maxLives;
 
+        // Cache DOM elements
+        this.elements = {
+            score: document.querySelector('[data-testid="score"] #scoreValue'),
+            colorBox: document.querySelector('[data-testid="colorBox"]'),
+            colorOptions: document.querySelectorAll('[data-testid="colorOption"]'),
+            gameStatus: document.querySelector('[data-testid="gameStatus"]'),
+            newGameButton: document.querySelector('[data-testid="newGameButton"]')
+        };
+
+        // Game state
+        this.state = {
+            score: 0,
+            targetColor: '',
+            gameOver: false,
+            isAnimating: false
+        };
+
+        this.createLivesDisplay();
         this.initGame();
         this.attachEventListeners();
     }
 
-    initGame() {
-        // Reset score
-        this.score = 0;
-        this.scoreElement.textContent = this.score;
+    createLivesDisplay() {
+        const livesContainer = document.createElement('div');
+        livesContainer.setAttribute('data-testid', 'livesDisplay');
+        livesContainer.className = 'lives-container';
 
-        // Select target color and set color options
-        this.setTargetColor();
-        this.setColorOptions();
+        this.livesDisplay = document.createElement('div');
+        this.livesDisplay.className = 'lives';
+        livesContainer.appendChild(this.livesDisplay);
 
-        // Reset game status
-        this.gameStatus.textContent = 'Make your first guess!';
-        this.gameStatus.style.color = 'black';
+        this.elements.score.parentElement.after(livesContainer);
+        this.updateLivesDisplay();
     }
 
-    setTargetColor() {
-        // Randomly select target color
-        this.targetColor = this.getRandomColor();
-        this.colorBox.style.backgroundColor = this.targetColor;
-    }
-
-    setColorOptions() {
-        // Create an array with the correct color and random incorrect colors
-        const options = [this.targetColor];
-        while (options.length < 6) {
-            const randomColor = this.getRandomColor();
-            if (!options.includes(randomColor)) {
-                options.push(randomColor);
-            }
-        }
-
-        // Shuffle the options
-        const shuffledOptions = this.shuffleArray(options);
-
-        // Set background colors for color option buttons
-        this.colorOptions.forEach((option, index) => {
-            option.style.backgroundColor = shuffledOptions[index];
-            option.addEventListener('click', () => this.checkGuess(shuffledOptions[index]));
-        });
-    }
-
-    checkGuess(selectedColor) {
-        if (selectedColor === this.targetColor) {
-            this.score++;
-            this.scoreElement.textContent = this.score;
-            this.gameStatus.textContent = 'Correct! Great job!';
-            this.gameStatus.style.color = 'green';
-
-            // Start a new round
-            setTimeout(() => {
-                this.setTargetColor();
-                this.setColorOptions();
-            }, 1000);
-        } else {
-            this.gameStatus.textContent = 'Wrong guess. Try again!';
-            this.gameStatus.style.color = 'red';
-        }
+    updateLivesDisplay() {
+        const fullHearts = '❤️'.repeat(this.currentLives);
+        const emptyHearts = '🖤'.repeat(this.maxLives - this.currentLives);
+        this.livesDisplay.innerHTML = fullHearts + emptyHearts;
     }
 
     getRandomColor() {
-        return this.colors[Math.floor(Math.random() * this.colors.length)];
+        const excludeColors = new Set(Array.from(this.elements.colorOptions)
+            .map(option => option.style.backgroundColor));
+        let newColor;
+
+        do {
+            newColor = this.baseColors[Math.floor(Math.random() * this.baseColors.length)];
+        } while (excludeColors.has(newColor));
+
+        return newColor;
+    }
+
+    clamp(num, min, max) {
+        return Math.min(Math.max(num, min), max);
+    }
+
+    generateSimilarColors(baseColor) {
+        const rgb = this.hexToRgb(baseColor);
+        const colors = new Set([baseColor]);
+
+        while (colors.size < 6) {
+            const newColor = {
+                r: this.clamp(rgb.r + (Math.random() - 0.5) * this.VARIATION_AMOUNT * 2, 0, 255),
+                g: this.clamp(rgb.g + (Math.random() - 0.5) * this.VARIATION_AMOUNT * 2, 0, 255),
+                b: this.clamp(rgb.b + (Math.random() - 0.5) * this.VARIATION_AMOUNT * 2, 0, 255)
+            };
+
+            colors.add(this.rgbToHex(newColor.r, newColor.g, newColor.b));
+        }
+
+        return Array.from(colors);
+    }
+
+    hexToRgb(hex) {
+        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return result ? {
+            r: parseInt(result[1], 16),
+            g: parseInt(result[2], 16),
+            b: parseInt(result[3], 16)
+        } : null;
+    }
+
+    rgbToHex(r, g, b) {
+        return '#' + [r, g, b].map(x => {
+            const hex = Math.round(x).toString(16);
+            return hex.length === 1 ? '0' + hex : hex;
+        }).join('');
+    }
+
+    async animateColorChange(element, color) {
+        element.style.transition = 'background-color 0.3s ease';
+        element.style.backgroundColor = color;
+        await new Promise(resolve => setTimeout(resolve, 300));
+        element.style.transition = '';
+    }
+
+    initGame() {
+        Object.assign(this.state, {
+            score: 0,
+            gameOver: false,
+            isAnimating: false
+        });
+
+        this.currentLives = this.maxLives;
+        this.elements.score.textContent = this.state.score;
+        this.updateLivesDisplay();
+        this.startNewRound();
+
+        this.elements.colorOptions.forEach(option => {
+            option.disabled = false;
+            option.classList.remove('correct', 'incorrect');
+        });
+    }
+
+    async setTargetColor() {
+        const newColor = this.getRandomColor();
+        this.state.targetColor = newColor;
+        await this.animateColorChange(this.elements.colorBox, newColor);
     }
 
     shuffleArray(array) {
-        for (let i = array.length - 1; i > 0; i--) {
+        const shuffled = [...array];
+        for (let i = shuffled.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
-            [array[i], array[j]] = [array[j], array[i]];
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
         }
-        return array;
+        return shuffled;
+    }
+
+    async setColorOptions() {
+        if (this.state.isAnimating) return;
+
+        const options = this.generateSimilarColors(this.state.targetColor);
+        const shuffledOptions = this.shuffleArray(options);
+
+        const updatePromises = Array.from(this.elements.colorOptions).map(async (option, index) => {
+            const newOption = option.cloneNode(true);
+            newOption.disabled = this.state.gameOver;
+            await this.animateColorChange(newOption, shuffledOptions[index]);
+
+            newOption.addEventListener('click', () => this.checkGuess(shuffledOptions[index]));
+            option.parentNode.replaceChild(newOption, option);
+        });
+
+        await Promise.all(updatePromises);
+        this.elements.colorOptions = document.querySelectorAll('[data-testid="colorOption"]');
+    }
+
+    async checkGuess(selectedColor) {
+        if (this.state.gameOver || this.state.isAnimating) return;
+
+        this.state.isAnimating = true;
+        const isCorrect = selectedColor === this.state.targetColor;
+
+        if (isCorrect) {
+            this.state.score++;
+            this.elements.score.textContent = this.state.score;
+            this.updateGameStatus('Correct! Great job!', 'green');
+
+            setTimeout(() => this.startNewRound(), this.ANIMATION_DURATION);
+        } else {
+            this.currentLives--;
+            this.updateLivesDisplay();
+
+            if (this.currentLives === 0) {
+                this.state.gameOver = true;
+                this.updateGameStatus(`Game Over! Final Score: ${this.state.score}`, 'red');
+                this.elements.colorOptions.forEach(option => option.disabled = true);
+            } else {
+                this.updateGameStatus(
+                    `Wrong guess! ${this.currentLives} ${this.currentLives === 1 ? 'life' : 'lives'} remaining`,
+                    'red'
+                );
+            }
+        }
+
+        this.state.isAnimating = false;
+    }
+
+    updateGameStatus(message, color) {
+        this.elements.gameStatus.textContent = message;
+        this.elements.gameStatus.style.color = color;
+    }
+
+    async startNewRound() {
+        if (this.state.gameOver) return;
+
+        await this.setTargetColor();
+        await this.setColorOptions();
+        this.updateGameStatus('Make your guess!', 'black');
     }
 
     attachEventListeners() {
-        // New game button event listener
-        this.newGameButton.addEventListener('click', () => this.initGame());
+        this.elements.newGameButton.addEventListener('click', () => {
+            if (!this.state.isAnimating) {
+                this.initGame();
+            }
+        });
+
+        // Add keyboard controls
+        document.addEventListener('keydown', (e) => {
+            if (this.state.gameOver || this.state.isAnimating) return;
+
+            const keyToIndex = {
+                '1': 0, '2': 1, '3': 2,
+                '4': 3, '5': 4, '6': 5
+            };
+
+            const index = keyToIndex[e.key];
+            if (index !== undefined && this.elements.colorOptions[index]) {
+                this.elements.colorOptions[index].click();
+            }
+        });
     }
 }
 
