@@ -12,6 +12,7 @@ class ColorGame {
         this.maxLives = 5;
         this.currentLives = this.maxLives;
         this.maxHints = 3;
+        this.maxHelp = 3;
 
         // Cache DOM elements
         this.elements = {
@@ -21,7 +22,9 @@ class ColorGame {
             gameStatus: document.querySelector('[data-testid="gameStatus"]'),
             newGameButton: document.querySelector('[data-testid="newGameButton"]'),
             hintButton: document.querySelector('[data-testid="hintButton"]'),
-            hintCountDisplay: document.querySelector('[data-testid="hintCount"]')
+            helpButton: document.querySelector('[data-testid="helpButton"]'),
+            hintCountDisplay: document.querySelector('[data-testid="hintCount"]'),
+            helpCountDisplay: document.querySelector('[data-testid="helpCount"]')
         };
 
         // Game state
@@ -30,7 +33,10 @@ class ColorGame {
             targetColor: '',
             gameOver: false,
             isAnimating: false,
-            hintsRemaining: this.maxHints
+            hintsRemaining: this.maxHints,
+            helpRemaining: this.maxHelp,
+            colorOptions: [],
+            eliminatedOptions: []
         };
 
         this.createInitialImage();
@@ -67,6 +73,85 @@ class ColorGame {
         this.livesDisplay.innerHTML = fullHearts + emptyHearts;
     }
 
+    useHelp() {
+        if (this.state.helpRemaining <= 0 || this.state.gameOver) {
+            this.updateGameStatus('No help remaining!', 'red');
+            return;
+        }
+
+        // Reduce help count
+        this.state.helpRemaining--;
+        this.updateHelpDisplay();
+
+        // Find incorrect color options
+        const incorrectOptions = this.state.colorOptions.filter(
+            color => color !== this.state.targetColor
+        );
+
+        // If all options have been eliminated, don't proceed
+        if (incorrectOptions.length === 0) {
+            this.updateGameStatus('No more options to eliminate!', 'red');
+            return;
+        }
+
+        // Randomly select an incorrect option to eliminate
+        let optionToEliminate;
+        do {
+            optionToEliminate = incorrectOptions[Math.floor(Math.random() * incorrectOptions.length)];
+        } while (this.state.eliminatedOptions.includes(optionToEliminate));
+
+        // Find and fade out the option
+        const optionIndex = this.state.colorOptions.indexOf(optionToEliminate);
+        if (optionIndex !== -1) {
+            const optionElement = this.elements.colorOptions[optionIndex];
+            
+            // Add eliminated option to tracking
+            this.state.eliminatedOptions.push(optionToEliminate);
+
+            // Fade out the option
+            optionElement.style.opacity = '0.3';
+            optionElement.disabled = true;
+
+            // Update status
+            this.updateGameStatus('An incorrect option has been eliminated!', 'blue');
+        }
+    }
+
+    updateHelpDisplay() {
+        if (this.elements.helpCountDisplay) {
+            this.elements.helpCountDisplay.textContent = `Help: ${this.state.helpRemaining}`;
+        }
+    }
+
+    async setColorOptions() {
+        if (this.state.isAnimating) return;
+
+        const options = this.generateContrastingColors(this.state.targetColor);
+        const shuffledOptions = this.shuffleArray(options);
+
+        // Clear previous color options
+        this.state.colorOptions = [];
+
+        const updatePromises = Array.from(this.elements.colorOptions).map(async (option, index) => {
+            const newOption = option.cloneNode(true);
+            newOption.disabled = this.state.gameOver;
+            
+            // Explicitly set the background color
+            newOption.style.backgroundColor = shuffledOptions[index];
+            
+            // Store the color in the state
+            this.state.colorOptions.push(shuffledOptions[index]);
+
+            newOption.addEventListener('click', () => this.checkGuess(shuffledOptions[index]));
+            option.parentNode.replaceChild(newOption, option);
+        });
+
+        await Promise.all(updatePromises);
+        
+        // Update color options in elements
+        this.elements.colorOptions = document.querySelectorAll('[data-testid="colorOption"]');
+    }
+
     provideHint() {
         // Check if hints are available
         if (this.state.hintsRemaining <= 0 || this.state.gameOver) {
@@ -80,22 +165,25 @@ class ColorGame {
 
         // Find the correct color among options
         const correctColor = this.state.targetColor;
-        const colorOptions = Array.from(this.elements.colorOptions);
         
-        // Generate hint message
+        // Calculate color differences
+        const colorDifferences = this.state.colorOptions.map(color => 
+            this.calculateColorDifference(color, correctColor)
+        );
+
+        // Find the closest color index
+        const closestColorIndex = colorDifferences.indexOf(Math.min(...colorDifferences));
+        const closestColor = this.state.colorOptions[closestColorIndex];
+
+        // Generate hint messages
         const hintMessages = [
-            "The correct color is close to this one...",
-            "Pay attention to the color's brightness...",
-            "The color might be similar to one of these..."
+            `The correct color is close to the ${this.getColorName(closestColor)} color.`,
+            `Pay attention to the color similar to ${this.getColorName(closestColor)}.`,
+            `The target color shares similarities with the ${this.getColorName(closestColor)} option.`
         ];
 
         // Randomly select a hint message
         const hintMessage = hintMessages[Math.floor(Math.random() * hintMessages.length)];
-
-        // Find the index of the correct color
-        const correctColorIndex = colorOptions.findIndex(option => 
-            option.style.backgroundColor === correctColor
-        );
 
         // Update game status with hint
         this.updateGameStatus(hintMessage, 'blue');
@@ -142,6 +230,37 @@ class ColorGame {
         );
     }
 
+    // Helper method to calculate color difference
+    calculateColorDifference(color1, color2) {
+        const rgb1 = this.hexToRgb(color1);
+        const rgb2 = this.hexToRgb(color2);
+
+        return Math.sqrt(
+            Math.pow(rgb1.r - rgb2.r, 2) +
+            Math.pow(rgb1.g - rgb2.g, 2) +
+            Math.pow(rgb1.b - rgb2.b, 2)
+        );
+    }
+
+    getColorName(hexColor) {
+        const colorNames = {
+            '#FF0000': 'red',
+            '#00FF00': 'green',
+            '#0000FF': 'blue',
+            '#FF00FF': 'magenta',
+            '#FFFF00': 'yellow',
+            '#00FFFF': 'cyan',
+            '#FF8000': 'orange',
+            '#80FF00': 'lime',
+            '#0080FF': 'sky blue',
+            '#8000FF': 'purple',
+            '#FF0080': 'pink',
+            '#00FF80': 'sea green'
+        };
+
+        return colorNames[hexColor] || 'unknown';
+    }
+
     getRandomColor() {
         const excludeColors = new Set(Array.from(this.elements.colorOptions)
             .map(option => option.style.backgroundColor));
@@ -171,7 +290,7 @@ class ColorGame {
     }
 
     async animateColorChange(element, color) {
-        element.style.transition = 'background-color 0.3s ease';
+        element.style.transition = 'background-color 0.5s ease-in-out';
         element.style.backgroundColor = color;
         await new Promise(resolve => setTimeout(resolve, 300));
         element.style.transition = '';
@@ -194,10 +313,12 @@ class ColorGame {
         this.updateLivesDisplay();
         this.updateLivesDisplay();
         this.updateHintDisplay();
+        this.updateHelpDisplay();
         this.startNewRound();
 
         this.elements.colorOptions.forEach(option => {
             option.disabled = false;
+            option.style.opacity = '1';
             option.classList.remove('correct', 'incorrect');
         });
     }
@@ -218,25 +339,6 @@ class ColorGame {
             [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
         }
         return shuffled;
-    }
-
-    async setColorOptions() {
-        if (this.state.isAnimating) return;
-
-        const options = this.generateContrastingColors(this.state.targetColor);
-        const shuffledOptions = this.shuffleArray(options);
-
-        const updatePromises = Array.from(this.elements.colorOptions).map(async (option, index) => {
-            const newOption = option.cloneNode(true);
-            newOption.disabled = this.state.gameOver;
-            await this.animateColorChange(newOption, shuffledOptions[index]);
-
-            newOption.addEventListener('click', () => this.checkGuess(shuffledOptions[index]));
-            option.parentNode.replaceChild(newOption, option);
-        });
-
-        await Promise.all(updatePromises);
-        this.elements.colorOptions = document.querySelectorAll('[data-testid="colorOption"]');
     }
 
     async checkGuess(selectedColor) {
@@ -301,6 +403,10 @@ class ColorGame {
 
         if (this.elements.hintButton) {
             this.elements.hintButton.addEventListener('click', () => this.provideHint());
+        }
+
+        if (this.elements.helpButton) {
+            this.elements.helpButton.addEventListener('click', () => this.useHelp());
         }
 
         // Add keyboard controls
