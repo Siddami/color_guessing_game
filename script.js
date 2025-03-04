@@ -11,6 +11,7 @@ class ColorGame {
 
         this.maxLives = 5;
         this.currentLives = this.maxLives;
+        this.maxHints = 3;
 
         // Cache DOM elements
         this.elements = {
@@ -18,7 +19,9 @@ class ColorGame {
             colorBox: document.querySelector('[data-testid="colorBox"]'),
             colorOptions: document.querySelectorAll('[data-testid="colorOption"]'),
             gameStatus: document.querySelector('[data-testid="gameStatus"]'),
-            newGameButton: document.querySelector('[data-testid="newGameButton"]')
+            newGameButton: document.querySelector('[data-testid="newGameButton"]'),
+            hintButton: document.querySelector('[data-testid="hintButton"]'),
+            hintCountDisplay: document.querySelector('[data-testid="hintCount"]')
         };
 
         // Game state
@@ -26,12 +29,23 @@ class ColorGame {
             score: 0,
             targetColor: '',
             gameOver: false,
-            isAnimating: false
+            isAnimating: false,
+            hintsRemaining: this.maxHints
         };
 
+        this.createInitialImage();
         this.createLivesDisplay();
         this.initGame();
         this.attachEventListeners();
+    }
+
+    createInitialImage() {
+        this.initialImage = document.createElement('img');
+        this.initialImage.src = 'https://img.freepik.com/free-photo/background-with-christmas-gifts-box-template_135149-77.jpg';
+        this.initialImage.alt = 'Color Challenge';
+        this.initialImage.style.width = '100%';
+        this.initialImage.style.height = '100%';
+        this.initialImage.style.objectFit = 'cover';
     }
 
     createLivesDisplay() {
@@ -53,40 +67,80 @@ class ColorGame {
         this.livesDisplay.innerHTML = fullHearts + emptyHearts;
     }
 
-    generateContrastingColors(baseColor) {
-    const colors = new Set([baseColor]);
+    provideHint() {
+        // Check if hints are available
+        if (this.state.hintsRemaining <= 0 || this.state.gameOver) {
+            this.updateGameStatus('No hints remaining!', 'red');
+            return;
+        }
 
-    while (colors.size < 6) {
-        const randomColor = this.getRandomContrastingColor(baseColor);
-        colors.add(randomColor);
+        // Reduce hint count
+        this.state.hintsRemaining--;
+        this.updateHintDisplay();
+
+        // Find the correct color among options
+        const correctColor = this.state.targetColor;
+        const colorOptions = Array.from(this.elements.colorOptions);
+        
+        // Generate hint message
+        const hintMessages = [
+            "The correct color is close to this one...",
+            "Pay attention to the color's brightness...",
+            "The color might be similar to one of these..."
+        ];
+
+        // Randomly select a hint message
+        const hintMessage = hintMessages[Math.floor(Math.random() * hintMessages.length)];
+
+        // Find the index of the correct color
+        const correctColorIndex = colorOptions.findIndex(option => 
+            option.style.backgroundColor === correctColor
+        );
+
+        // Update game status with hint
+        this.updateGameStatus(hintMessage, 'blue');
     }
 
-    return Array.from(colors);
-}
+    updateHintDisplay() {
+        if (this.elements.hintCountDisplay) {
+            this.elements.hintCountDisplay.textContent = `Hints: ${this.state.hintsRemaining}`;
+        }
+    }
 
-getRandomContrastingColor(referenceColor) {
-    const referenceRgb = this.hexToRgb(referenceColor);
-    let newColor;
 
-    do {
-        newColor = {
-            r: Math.floor(Math.random() * 256),
-            g: Math.floor(Math.random() * 256),
-            b: Math.floor(Math.random() * 256)
-        };
-    } while (this.getColorDifference(referenceRgb, newColor) < 150);
+    generateContrastingColors(baseColor) {
+        const colors = new Set([baseColor]);
 
-    return this.rgbToHex(newColor.r, newColor.g, newColor.b);
-}
+        while (colors.size < 6) {
+            const randomColor = this.getRandomContrastingColor(baseColor);
+            colors.add(randomColor);
+        }
 
-getColorDifference(rgb1, rgb2) {
-    return Math.sqrt(
-        Math.pow(rgb1.r - rgb2.r, 2) +
-        Math.pow(rgb1.g - rgb2.g, 2) +
-        Math.pow(rgb1.b - rgb2.b, 2)
-    );
-}
+        return Array.from(colors);
+    }
 
+    getRandomContrastingColor(referenceColor) {
+        const referenceRgb = this.hexToRgb(referenceColor);
+        let newColor;
+
+        do {
+            newColor = {
+                r: Math.floor(Math.random() * 256),
+                g: Math.floor(Math.random() * 256),
+                b: Math.floor(Math.random() * 256)
+            };
+        } while (this.getColorDifference(referenceRgb, newColor) < 150);
+
+        return this.rgbToHex(newColor.r, newColor.g, newColor.b);
+    }
+
+    getColorDifference(rgb1, rgb2) {
+        return Math.sqrt(
+            Math.pow(rgb1.r - rgb2.r, 2) +
+            Math.pow(rgb1.g - rgb2.g, 2) +
+            Math.pow(rgb1.b - rgb2.b, 2)
+        );
+    }
 
     getRandomColor() {
         const excludeColors = new Set(Array.from(this.elements.colorOptions)
@@ -99,11 +153,6 @@ getColorDifference(rgb1, rgb2) {
 
         return newColor;
     }
-
-    clamp(num, min, max) {
-        return Math.min(Math.max(num, min), max);
-    }
-
 
     hexToRgb(hex) {
         const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -132,12 +181,19 @@ getColorDifference(rgb1, rgb2) {
         Object.assign(this.state, {
             score: 0,
             gameOver: false,
-            isAnimating: false
+            isAnimating: false,
+            hintsRemaining: this.maxHints
         });
+
+        // Reset color box to initial image
+        this.elements.colorBox.innerHTML = '';
+        this.elements.colorBox.appendChild(this.initialImage);
 
         this.currentLives = this.maxLives;
         this.elements.score.textContent = this.state.score;
         this.updateLivesDisplay();
+        this.updateLivesDisplay();
+        this.updateHintDisplay();
         this.startNewRound();
 
         this.elements.colorOptions.forEach(option => {
@@ -149,7 +205,10 @@ getColorDifference(rgb1, rgb2) {
     async setTargetColor() {
         const newColor = this.getRandomColor();
         this.state.targetColor = newColor;
-        await this.animateColorChange(this.elements.colorBox, newColor);
+        
+        // Reset to initial image
+        this.elements.colorBox.innerHTML = '';
+        this.elements.colorBox.appendChild(this.initialImage);
     }
 
     shuffleArray(array) {
@@ -187,6 +246,10 @@ getColorDifference(rgb1, rgb2) {
         const isCorrect = selectedColor === this.state.targetColor;
 
         if (isCorrect) {
+            // Reveal color
+            this.elements.colorBox.innerHTML = ''; // Clear image
+            this.elements.colorBox.style.backgroundColor = this.state.targetColor;
+
             this.state.score++;
             this.elements.score.textContent = this.state.score;
             this.updateGameStatus('Correct! Great job!', 'green');
@@ -197,6 +260,10 @@ getColorDifference(rgb1, rgb2) {
             this.updateLivesDisplay();
 
             if (this.currentLives === 0) {
+                // Reveal color when game is over
+                this.elements.colorBox.innerHTML = ''; // Clear image
+                this.elements.colorBox.style.backgroundColor = this.state.targetColor;
+
                 this.state.gameOver = true;
                 this.updateGameStatus(`Game Over! Final Score: ${this.state.score}`, 'red');
                 this.elements.colorOptions.forEach(option => option.disabled = true);
@@ -210,6 +277,7 @@ getColorDifference(rgb1, rgb2) {
 
         this.state.isAnimating = false;
     }
+
 
     updateGameStatus(message, color) {
         this.elements.gameStatus.textContent = message;
@@ -230,6 +298,10 @@ getColorDifference(rgb1, rgb2) {
                 this.initGame();
             }
         });
+
+        if (this.elements.hintButton) {
+            this.elements.hintButton.addEventListener('click', () => this.provideHint());
+        }
 
         // Add keyboard controls
         document.addEventListener('keydown', (e) => {
