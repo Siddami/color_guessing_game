@@ -109,7 +109,7 @@ class ColorGame {
             this.state.eliminatedOptions.push(optionToEliminate);
 
             // Fade out the option
-            optionElement.style.opacity = '0.3';
+            optionElement.style.opacity = '0.035';
             optionElement.disabled = true;
 
             // Update status
@@ -301,7 +301,8 @@ class ColorGame {
             score: 0,
             gameOver: false,
             isAnimating: false,
-            hintsRemaining: this.maxHints
+            hintsRemaining: this.maxHints,
+            helpRemaining: this.maxHelp
         });
 
         // Reset color box to initial image
@@ -388,6 +389,14 @@ class ColorGame {
 
     async startNewRound() {
         if (this.state.gameOver) return;
+
+        this.state.eliminatedOptions = [];
+
+        this.elements.colorOptions.forEach(option => {
+            option.disabled = false;
+            option.style.opacity = '1';
+            option.classList.remove('correct', 'incorrect');
+        });
 
         await this.setTargetColor();
         await this.setColorOptions();
